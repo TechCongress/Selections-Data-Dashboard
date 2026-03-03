@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selections Process Duration Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+    <style>
+        :root {
+            --bg-primary: #f0f4f8;
+            --bg-card: #ffffff;
+            --bg-header: #1e3a5f;
+            --text-primary: #1a2332;
+            --text-secondary: #5a6a7e;
+            --text-on-dark: #ffffff;
+            --accent: #2d6a9f;
+            --positive: #2e7d32;
+            --negative: #c62828;
+            --neutral: #5a6a7e;
+            --gap: 18px;
+            --radius: 10px;
+            --shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+        .dashboard-container { max-width: 1400px; margin: 0 auto; padding: var(--gap); }
+
+        /* Header */
+        .dashboard-header {
+            background: var(--bg-header);
+            color: var(--text-on-dark);
+            padding: 22px 28px;
+            border-radius: var(--radius);
+            margin-bottom: var(--gap);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+        .header-left h1 { font-size: 20px; font-weight: 700; margin-bottom: 3px; }
+        .header-left p { font-size: 13px; color: rgba(255,255,255,0.65); }
+        .filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .filter-group { display: flex; align-items: center; gap: 7px; }
+        .filter-group label { font-size: 12px; color: rgba(255,255,255,0.7); white-space: nowrap; }
+        .filter-group select {
+            padding: 6px 10px;
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 5px;
+            background: rgba(255,255,255,0.12);
+            color: var(--text-on-dark);
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .filter-group select option { background: #1e3a5f; }
+
+        /* Cycle toggle buttons */
+        .cycle-toggles { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+        .cycle-btn,
+        .action-btn {
+            padding: 5px 11px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.75);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .cycle-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+        .cycle-btn.active { background: rgba(255,255,255,0.95); color: #1e3a5f; border-color: transparent; font-weight: 700; }
+        .cycle-btn.all-btn { border-color: rgba(255,255,255,0.5); }
+        .cycle-btn.all-btn.active { background: #fff; }
+
+        /* Action toggle buttons (inside white card) */
+        .action-toggles { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 14px; }
+        .action-btn {
+            border: 1px solid #dee2e6;
+            background: #f0f4f8;
+            color: #5a6a7e;
+        }
+        .action-btn:hover { background: #e2e8f0; color: #1a2332; }
+        .action-btn.active { background: #fff; border-color: currentColor; font-weight: 700; }
+        .action-btn.all-btn { border-color: #adb5bd; }
+
+        /* KPI Cards */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: var(--gap);
+            margin-bottom: var(--gap);
+        }
+        .kpi-card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 18px 20px;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--accent);
+        }
+        .kpi-card.color-1 { border-left-color: #4C72B0; }
+        .kpi-card.color-2 { border-left-color: #DD8452; }
+        .kpi-card.color-3 { border-left-color: #55A868; }
+        .kpi-card.color-4 { border-left-color: #C44E52; }
+        .kpi-card.color-5 { border-left-color: #8172B3; }
+        .kpi-card.color-6 { border-left-color: #937860; }
+        .kpi-card.color-7 { border-left-color: #DA8BC3; }
+        .kpi-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+        .kpi-value { font-size: 26px; font-weight: 700; color: var(--text-primary); }
+        .kpi-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+        /* Section labels */
+        .section-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 10px;
+            padding-left: 2px;
+        }
+
+        /* Charts */
+        .chart-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: var(--gap);
+            margin-bottom: var(--gap);
+        }
+        .chart-row-full {
+            margin-bottom: var(--gap);
+        }
+        .chart-container {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 22px 24px;
+            box-shadow: var(--shadow);
+        }
+        .chart-container h3 {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+        .chart-container .chart-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+        .chart-container canvas { max-height: 320px; }
+        .chart-container.tall canvas { max-height: 380px; }
+
+        /* Table */
+        .table-section {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 22px 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: var(--gap);
+            overflow-x: auto;
+        }
+        .table-section h3 {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+        .table-section .chart-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table thead th {
+            text-align: left;
+            padding: 9px 12px;
+            border-bottom: 2px solid #dee2e6;
+            color: var(--text-secondary);
+            font-weight: 700;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            background: #f8f9fa;
+        }
+        .data-table thead th.action-col { min-width: 200px; }
+        .data-table tbody td {
+            padding: 9px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            text-align: center;
+        }
+        .data-table tbody td.action-col { text-align: left; font-weight: 600; }
+        .data-table tbody tr:hover { background: #f8f9fa; }
+        .data-table tbody tr:last-child td { border-bottom: none; font-weight: 700; background: #f0f4f8; }
+        .cell-high { background: #ffecb3; border-radius: 3px; padding: 2px 6px; }
+        .cell-low { background: #e8f5e9; border-radius: 3px; padding: 2px 6px; }
+        .cell-mid { padding: 2px 6px; }
+        .cell-missing { color: #bbb; font-style: italic; }
+        .cell-date { font-size: 10px; color: #8a9ab0; margin-top: 2px; font-weight: 400; white-space: nowrap; }
+
+        /* Legend badge */
+        .season-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+        .badge-summer { background: #fff3e0; color: #e65100; }
+        .badge-winter { background: #e3f2fd; color: #1565c0; }
+
+        /* Footer */
+        .dashboard-footer {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+            padding: 12px 0 4px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-header { flex-direction: column; align-items: flex-start; }
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .chart-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="dashboard-container">
+
+    <!-- Header -->
+    <header class="dashboard-header">
+        <div class="header-left">
+            <h1>Selections Process Duration Dashboard</h1>
+            <p>Duration (days) for each stage across all selection cycles · 9 cycles · 2021–2026</p>
+        </div>
+        <div class="filters">
+            <div class="filter-group" style="flex-direction:column; align-items:flex-start; gap:5px;">
+                <label>Filter Cycles</label>
+                <div class="cycle-toggles" id="cycle-toggles"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- KPI Row -->
+    <div class="section-title">Average Days per Stage (filtered cycles)</div>
+    <div class="kpi-row" id="kpi-row"></div>
+
+    <!-- Main Charts -->
+    <div class="chart-row-full">
+        <div class="chart-container tall">
+            <h3>Duration by Stage Across Cycles</h3>
+            <div class="chart-desc">Number of days for each action, grouped by stage — compare across all cycles</div>
+            <canvas id="grouped-bar-chart"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-row">
+        <div class="chart-container">
+            <h3>Total Process Duration by Cycle</h3>
+            <div class="chart-desc">Stacked by stage — shows both total length and composition</div>
+            <canvas id="stacked-bar-chart"></canvas>
+        </div>
+        <div class="chart-container" style="display:flex; flex-direction:column;">
+            <h3>Stage Duration Trend Over Time</h3>
+            <div class="chart-desc">Select one or more stages to compare their duration across cycles</div>
+            <div class="action-toggles" id="action-toggles"></div>
+            <div style="position:relative; flex:1; min-height:300px;">
+                <canvas id="line-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="table-section">
+        <h3>Full Duration Matrix</h3>
+        <div class="chart-desc">Days per stage per cycle · <span style="background:#ffecb3;padding:1px 6px;border-radius:3px;">Highlighted</span> = longest for that stage · <span style="background:#e8f5e9;padding:1px 6px;border-radius:3px;">Green</span> = shortest</div>
+        <div id="table-container"></div>
+    </div>
+
+    <footer class="dashboard-footer">Selections Process Analysis · Data from uploaded spreadsheet · Durations in calendar days unless noted as business days</footer>
+</div>
+
+<script>
+// ─── Raw Data ───────────────────────────────────────────────────────────────
+const ACTIONS = [
+    'App Readers Rate',
+    'General Narrow Down',
+    'Round 1 Interviews',
+    'Round 2 Interviews',
+    'Reference Checks',
+    'Round 3 Interviews',
+    'Offers'
+];
+
+const ACTIONS_FULL = [
+    'Application readers rate applications',
+    'General narrow down',
+    'Round 1 interviews',
+    'Round 2 interviews',
+    'Reference checks',
+    'Round 3 interviews',
+    'Offers'
+];
+
+const CYCLES = [
+    { label: '2026 Cycle',  short: '2026',     season: 'Summer', year: 2026 },
+    { label: '2025 Cycle',  short: '2025',     season: 'Summer', year: 2025 },
+    { label: 'Jan 2024',    short: 'Jan 2024', season: 'Summer', year: 2024 },
+    { label: 'Jun 2023',    short: 'Jun 2023', season: 'Winter', year: 2023 },
+    { label: 'Jan 2023',    short: 'Jan 2023', season: 'Summer', year: 2023 },
+    { label: 'Jun 2022',    short: 'Jun 2022', season: 'Winter', year: 2022 },
+    { label: 'Jan 2022',    short: 'Jan 2022', season: 'Summer', year: 2022 },
+    { label: 'Jun 2021',    short: 'Jun 2021', season: 'Winter', year: 2021 },
+    { label: 'Jan 2021',    short: 'Jan 2021', season: 'Summer', year: 2021 },
+];
+
+// Days per cycle per action [cycle index][action index]
+// null = missing data
+const RAW_DATA = [
+    //  AppRd  GenND  R1   R2   RefChk  R3   Offers
+    [   17,    2,    13,  13,   35,     3,   32   ], // 2026
+    [   11,    1,     9,   8,    6,     2,   24   ], // 2025
+    [   23,    1,    10,   8,    5,     2,   22   ], // Jan 2024
+    [   13,    2,     6,   7,   14,     2,   10   ], // Jun 2023
+    [   15,    1,     7,   7,    3,     2,    8   ], // Jan 2023
+    [    9,    1,     5,   6,    6,     6,   42   ], // Jun 2022
+    [   29,    1,     6,  10,    6,     1,   16   ], // Jan 2022
+    [   15,    1,     4,   4,    5,     2, null   ], // Jun 2021 (offers missing)
+    [   11,    1,     6,   4,    3,     1,    2   ], // Jan 2021
+];
+
+// Date ranges per cycle per action [cycle index][action index]
+// Order matches CYCLES and ACTIONS arrays; null = missing
+const DATES = [
+    // 2026 Cycle
+    ['7/11–7/27',  '7/28–7/29', '8/18–9/3',    '9/9–9/25',      '9/29–11/14',    '10/1–10/3',     '10/6–11/18'  ],
+    // 2025 Cycle
+    ['8/8–8/18',   '8/19–8/20', '8/22–9/4',    '9/9–9/18',      '9/20–9/27',     '9/30–10/1',     '10/2–11/4'   ],
+    // Jan 2024
+    ['8/24–9/15',  '9/20',      '9/25–10/6',   '10/16–11/1',    '11/6–11/10',    '10/9, 12/1',    '11/8–12/7'   ],
+    // Jun 2023
+    ['2/21–3/5',   '3/7–3/8',   '3/13–3/20',   '3/22–3/30',     '4/3–4/20',      '4/19–4/20',     '4/18–5/1'    ],
+    // Jan 2023
+    ['8/18–9/1',   '9/2',       '9/20–9/28',   '10/4–10/12',    '10/14–10/18',   '10/19–10/20',   '10/19–10/28' ],
+    // Jun 2022
+    ['1/31–2/8',   '2/9',       '2/14–2/18',   '2/23–3/2',      '3/7–3/14',      '3/7–3/14',      '3/14–5/10'   ],
+    // Jan 2022
+    ['8/11–9/8',   '9/9',       '9/15–9/22',   '9/27–10/8',     '10/11–10/18',   '10/14',         '10/13–11/3'  ],
+    // Jun 2021
+    ['2/5–2/19',   '2/23',      '3/1–3/4',     '3/8–3/11',      '3/15–3/19',     '3/19, 3/24',    null          ],
+    // Jan 2021
+    ['9/4–9/14',   '9/30',      '10/6–10/14',  '10/19–10/22',   '10/26–10/28',   '10/26',         '11/4–11/5'   ],
+];
+
+// Palette - one color per action
+const COLORS = [
+    '#4C72B0', '#DD8452', '#55A868', '#C44E52',
+    '#8172B3', '#937860', '#DA8BC3'
+];
+const COLORS_ALPHA = COLORS.map(c => c + 'CC');
+
+// ─── State ──────────────────────────────────────────────────────────────────
+let selectedCycleIndices = new Set(CYCLES.map((_, i) => i));
+let selectedActionIndices = new Set(ACTIONS.map((_, i) => i));
+let filteredCycleIndices = CYCLES.map((_, i) => i);
+let charts = {};
+
+// ─── Action Toggles (for line chart) ─────────────────────────────────────────
+function populateActionToggles() {
+    const container = document.getElementById('action-toggles');
+    container.innerHTML = '';
+
+    const allBtn = document.createElement('button');
+    allBtn.className = 'action-btn all-btn active';
+    allBtn.textContent = 'All';
+    allBtn.dataset.idx = 'all';
+    allBtn.onclick = () => {
+        selectedActionIndices = new Set(ACTIONS.map((_, i) => i));
+        updateActionToggleUI();
+        renderLineChart();
+    };
+    container.appendChild(allBtn);
+
+    ACTIONS.forEach((action, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'action-btn active';
+        btn.textContent = action;
+        btn.dataset.idx = i;
+        btn.style.color = COLORS[i];
+        btn.onclick = () => {
+            if (selectedActionIndices.size === ACTIONS.length) {
+                // All selected → isolate to just this one
+                selectedActionIndices = new Set([i]);
+            } else if (selectedActionIndices.has(i)) {
+                // Already in selection → remove it (keep at least 1)
+                if (selectedActionIndices.size > 1) selectedActionIndices.delete(i);
+            } else {
+                // Not in selection → add it
+                selectedActionIndices.add(i);
+            }
+            updateActionToggleUI();
+            renderLineChart();
+        };
+        container.appendChild(btn);
+    });
+}
+
+function updateActionToggleUI() {
+    const allActive = selectedActionIndices.size === ACTIONS.length;
+    document.querySelectorAll('.action-btn').forEach(btn => {
+        if (btn.dataset.idx === 'all') {
+            btn.classList.toggle('active', allActive);
+        } else {
+            const idx = parseInt(btn.dataset.idx);
+            btn.classList.toggle('active', selectedActionIndices.has(idx));
+        }
+    });
+}
+
+function populateCycleToggles() {
+    const container = document.getElementById('cycle-toggles');
+    container.innerHTML = '';
+
+    // "All" button
+    const allBtn = document.createElement('button');
+    allBtn.className = 'cycle-btn all-btn active';
+    allBtn.textContent = 'All';
+    allBtn.dataset.idx = 'all';
+    allBtn.onclick = () => {
+        selectedCycleIndices = new Set(CYCLES.map((_, i) => i));
+        updateToggleUI();
+        applyFilters();
+    };
+    container.appendChild(allBtn);
+
+    // One button per cycle
+    CYCLES.forEach((cycle, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'cycle-btn active';
+        btn.textContent = cycle.short;
+        btn.dataset.idx = i;
+        btn.title = `${cycle.label} · ${cycle.season}`;
+        btn.onclick = () => {
+            if (selectedCycleIndices.size === CYCLES.length) {
+                // All selected → isolate to just this one
+                selectedCycleIndices = new Set([i]);
+            } else if (selectedCycleIndices.has(i)) {
+                // Already in selection → remove it (keep at least 1)
+                if (selectedCycleIndices.size > 1) selectedCycleIndices.delete(i);
+            } else {
+                // Not in selection → add it
+                selectedCycleIndices.add(i);
+            }
+            updateToggleUI();
+            applyFilters();
+        };
+        container.appendChild(btn);
+    });
+}
+
+function updateToggleUI() {
+    const allActive = selectedCycleIndices.size === CYCLES.length;
+    document.querySelectorAll('.cycle-btn').forEach(btn => {
+        if (btn.dataset.idx === 'all') {
+            btn.classList.toggle('active', allActive);
+        } else {
+            const idx = parseInt(btn.dataset.idx);
+            btn.classList.toggle('active', selectedCycleIndices.has(idx));
+        }
+    });
+}
+
+function applyFilters() {
+    filteredCycleIndices = [...selectedCycleIndices].sort((a, b) => a - b);
+    renderAll();
+}
+
+// ─── Data helpers ────────────────────────────────────────────────────────────
+function getFilteredCycles() {
+    return filteredCycleIndices.map(i => CYCLES[i]);
+}
+
+function getFilteredData() {
+    return filteredCycleIndices.map(i => RAW_DATA[i]);
+}
+
+function getFilteredDates() {
+    return filteredCycleIndices.map(i => DATES[i]);
+}
+
+function avg(arr) {
+    const valid = arr.filter(v => v !== null && v !== undefined);
+    if (!valid.length) return null;
+    return valid.reduce((a, b) => a + b, 0) / valid.length;
+}
+
+function fmt(v, decimals = 1) {
+    if (v === null || v === undefined) return '–';
+    return Number(v).toFixed(decimals);
+}
+
+// ─── KPI Cards ───────────────────────────────────────────────────────────────
+function renderKPIs() {
+    const data = getFilteredData();
+    const container = document.getElementById('kpi-row');
+    container.innerHTML = '';
+
+    ACTIONS.forEach((action, ai) => {
+        const vals = data.map(row => row[ai]).filter(v => v !== null);
+        const average = avg(vals);
+        const maxVal = Math.max(...vals);
+        const minVal = Math.min(...vals);
+
+        const card = document.createElement('div');
+        card.className = `kpi-card color-${ai + 1}`;
+        card.innerHTML = `
+            <div class="kpi-label">${action}</div>
+            <div class="kpi-value">${average !== null ? fmt(average) : '–'} <span style="font-size:14px;font-weight:400;color:#5a6a7e">days avg</span></div>
+            <div class="kpi-sub">Range: ${minVal}–${maxVal} days</div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+// ─── Grouped Bar Chart ───────────────────────────────────────────────────────
+function renderGroupedBar() {
+    const cycles = getFilteredCycles();
+    const data = getFilteredData();
+
+    const datasets = cycles.map((cycle, ci) => {
+        const actualIdx = filteredCycleIndices[ci];
+        // Assign colors by cycle - summer vs winter distinction
+        const baseColor = cycle.season === 'Summer'
+            ? `hsl(${210 + ci * 15}, 65%, ${45 + ci * 3}%)`
+            : `hsl(${150 + ci * 15}, 55%, ${40 + ci * 3}%)`;
+
+        return {
+            label: cycle.short,
+            data: ACTIONS.map((_, ai) => data[ci][ai]),
+            backgroundColor: baseColor + 'CC',
+            borderColor: baseColor,
+            borderWidth: 1,
+            borderRadius: 3,
+        };
+    });
+
+    const ctx = document.getElementById('grouped-bar-chart').getContext('2d');
+    if (charts.groupedBar) charts.groupedBar.destroy();
+    charts.groupedBar = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: ACTIONS, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { usePointStyle: true, padding: 14, font: { size: 12 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y + ' days' : 'N/A'}`
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Days', font: { size: 11 }, color: '#5a6a7e' },
+                    ticks: { callback: v => v + 'd' }
+                }
+            }
+        }
+    });
+}
+
+// ─── Stacked Bar Chart ───────────────────────────────────────────────────────
+function renderStackedBar() {
+    const cycles = [...getFilteredCycles()].reverse();
+    const data = [...getFilteredData()].reverse();
+    const labels = cycles.map(c => c.short);
+
+    const datasets = ACTIONS.map((action, ai) => ({
+        label: action,
+        data: data.map(row => row[ai] ?? 0),
+        backgroundColor: COLORS_ALPHA[ai],
+        borderColor: COLORS[ai],
+        borderWidth: 1,
+        borderRadius: 2,
+    }));
+
+    const ctx = document.getElementById('stacked-bar-chart').getContext('2d');
+    if (charts.stackedBar) charts.stackedBar.destroy();
+    charts.stackedBar = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { usePointStyle: true, padding: 10, font: { size: 11 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}d`,
+                        footer: items => {
+                            const total = items.reduce((s, i) => s + i.parsed.y, 0);
+                            return `Total: ${total} days`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+                y: {
+                    stacked: true,
+                    title: { display: true, text: 'Total Days', font: { size: 11 }, color: '#5a6a7e' },
+                    ticks: { callback: v => v + 'd' }
+                }
+            }
+        }
+    });
+}
+
+// ─── Line Chart ──────────────────────────────────────────────────────────────
+function renderLineChart() {
+    const cycles = [...getFilteredCycles()].reverse();
+    const data = [...getFilteredData()].reverse();
+    const labels = cycles.map(c => c.short);
+
+    const datasets = ACTIONS.map((action, ai) => {
+        const visible = selectedActionIndices.has(ai);
+        return {
+            label: action,
+            data: data.map(row => row[ai]),
+            borderColor: COLORS[ai],
+            backgroundColor: COLORS[ai] + '30',
+            borderWidth: 2.5,
+            pointRadius: 5,
+            pointHoverRadius: 8,
+            pointBackgroundColor: COLORS[ai],
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            tension: 0.25,
+            fill: false,
+            hidden: !visible,
+            spanGaps: true,
+        };
+    });
+
+    const ctx = document.getElementById('line-chart').getContext('2d');
+    if (charts.line) charts.line.destroy();
+    charts.line = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(26,35,50,0.92)',
+                    titleColor: '#fff',
+                    bodyColor: 'rgba(255,255,255,0.85)',
+                    padding: 12,
+                    cornerRadius: 8,
+                    callbacks: {
+                        title: items => `Cycle: ${items[0].label}`,
+                        label: ctx => {
+                            if (ctx.parsed.y === null) return null;
+                            return `  ${ctx.dataset.label}: ${ctx.parsed.y}d`;
+                        },
+                        filter: item => !item.dataset.hidden && item.parsed.y !== null,
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11 }, color: '#5a6a7e' },
+                    border: { color: '#dee2e6' }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f0f4f8' },
+                    border: { dash: [4, 4], color: 'transparent' },
+                    title: { display: true, text: 'Days', font: { size: 11 }, color: '#5a6a7e' },
+                    ticks: { callback: v => v + 'd', font: { size: 11 }, color: '#5a6a7e' }
+                }
+            }
+        }
+    });
+}
+
+// ─── Data Table ──────────────────────────────────────────────────────────────
+function renderTable() {
+    const cycles = getFilteredCycles();
+    const data = getFilteredData();
+    const dates = getFilteredDates();
+
+    // For each action, find min/max across filtered cycles
+    const actionStats = ACTIONS.map((_, ai) => {
+        const vals = data.map(row => row[ai]).filter(v => v !== null);
+        return { min: Math.min(...vals), max: Math.max(...vals) };
+    });
+
+    let html = '<table class="data-table"><thead><tr>';
+    html += '<th class="action-col">Stage</th>';
+    cycles.forEach(c => {
+        const badge = c.season === 'Summer'
+            ? `<span class="season-badge badge-summer">S</span>`
+            : `<span class="season-badge badge-winter">W</span>`;
+        html += `<th>${c.short}${badge}</th>`;
+    });
+    html += '<th>Avg</th></tr></thead><tbody>';
+
+    ACTIONS_FULL.forEach((action, ai) => {
+        const vals = data.map(row => row[ai]);
+        const validVals = vals.filter(v => v !== null);
+        const average = avg(validVals);
+        const { min, max } = actionStats[ai];
+
+        html += `<tr><td class="action-col" style="border-left:3px solid ${COLORS[ai]};padding-left:10px">${action}</td>`;
+        vals.forEach((v, ci) => {
+            const dateStr = dates[ci][ai];
+            const dateSub = dateStr ? `<div class="cell-date">${dateStr}</div>` : '';
+            if (v === null) {
+                html += `<td class="cell-missing">–</td>`;
+            } else if (validVals.length > 1 && v === max) {
+                html += `<td><span class="cell-high">${v}d</span>${dateSub}</td>`;
+            } else if (validVals.length > 1 && v === min) {
+                html += `<td><span class="cell-low">${v}d</span>${dateSub}</td>`;
+            } else {
+                html += `<td><span class="cell-mid">${v}d</span>${dateSub}</td>`;
+            }
+        });
+        html += `<td><strong>${average !== null ? fmt(average) + 'd' : '–'}</strong></td>`;
+        html += '</tr>';
+    });
+
+    // Total row
+    html += '<tr><td class="action-col" style="padding-left:10px">TOTAL (all stages)</td>';
+    data.forEach(row => {
+        const total = row.reduce((s, v) => s + (v ?? 0), 0);
+        const hasNull = row.some(v => v === null);
+        html += `<td>${total}d${hasNull ? '*' : ''}</td>`;
+    });
+
+    // Avg total
+    const avgTotals = avg(data.map(row => row.reduce((s, v) => s + (v ?? 0), 0)));
+    html += `<td>${fmt(avgTotals)}d</td>`;
+    html += '</tr></tbody></table>';
+
+    if (data.some(row => row.some(v => v === null))) {
+        html += '<p style="font-size:11px;color:#aaa;margin-top:8px">* Missing data for some stages excluded from total</p>';
+    }
+    html += '<p style="font-size:11px;color:#aaa;margin-top:4px"><span class="season-badge badge-summer">S</span> = Summer cycle (January start) &nbsp; <span class="season-badge badge-winter">W</span> = Winter cycle (June start)</p>';
+
+    document.getElementById('table-container').innerHTML = html;
+}
+
+// ─── Master render ────────────────────────────────────────────────────────────
+function renderAll() {
+    renderKPIs();
+    renderGroupedBar();
+    renderStackedBar();
+    renderLineChart();
+    renderTable();
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+populateCycleToggles();
+populateActionToggles();
+renderAll();
+</script>
+</body>
+</html>
